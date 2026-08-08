@@ -1,0 +1,10 @@
+{
+    "name": "Wrj.Transformtoolkit.Editor",
+    "references": [
+      "Wrj.Transformtoolkit"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}

@@ -1,0 +1,16 @@
+{
+  "name": "com.wrj.transformtoolkit",
+  "displayName": "Transform Toolkit",
+  "version": "1.0.0",
+  "description": "Transform Toolkit is a Unity Editor package for arranging and modifying groups of GameObjects. It combines an indexed transform driver with reusable presets for layouts, alignment, scattering, scaling, naming, and hierarchy operations.",
+  "author": {
+    "name": "Bill Jackson",
+    "url": "https://github.com/williamrjackson",
+    "email": "williamrjackson@gmail.com"
+  },
+  "changelogUrl": "https://github.com/williamrjackson/UnityTransformToolkit/releases",
+  "documentationUrl": "https://github.com/williamrjackson/UnityTransformToolkit/blob/master/README.md",
+  "licensesUrl": "https://github.com/williamrjackson/UnityTransformToolkit/blob/master/LICENSE",
+  "unity": "6000.0",
+  "unityRelease": "81f1"
+}
