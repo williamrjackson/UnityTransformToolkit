@@ -101,6 +101,7 @@ Preset settings are stored in ScriptableObject assets. Expand a preset in the wi
 | **Noise Scatter** | Offsets or positions objects using coherent noise with configurable frequency, strength, origin, and axes. |
 | **Progressive Scale** | Interpolates between two scale values across the selection using an animation curve. |
 | **Proximity Scale** | Scales objects according to their distance from a target. |
+| **Set Selection Pivot to Target** | Translates the selected objects so the average pivot matches the target, while keeping their positions relative to one another. |
 | **Staggered Rows** | Creates staggered, alternating, or checkerboard layouts in the XY, XZ, or YZ plane. |
 | **Wave** | Arranges objects along one axis while applying a sinusoidal offset on another. |
 
