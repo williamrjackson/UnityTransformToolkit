@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Renumber
   enabledInWindow: 1
-  isExpanded: 0
+  isExpanded: 1
   order: 0
   useEditorNamingScheme: 0
   overrideDigits: 2
-  overrideScheme: 1
+  overrideScheme: 2
   stripRegex: '[_([.\s]*?\d+[)\]\s]*[^\S]*'
   showPreview: 1
