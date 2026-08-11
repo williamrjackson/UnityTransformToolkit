@@ -2,7 +2,7 @@
 
 Transform Toolkit is a Unity Editor package for arranging and modifying groups of GameObjects. It combines an indexed transform driver with reusable presets for layouts, alignment, scattering, scaling, naming, and hierarchy operations. All operations work on the current Unity selection and support Undo.
 
-*Heavily vibe coded with GPT 5.6 Sol
+*Almost entirely vibe coded with GPT 5.6 Sol
 
 ![Demo](Documentation/Images/TransformToolkitDemo.gif)
 
