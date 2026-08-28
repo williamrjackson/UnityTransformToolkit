@@ -18,7 +18,7 @@ Use:
 
 Optionally lock to a specific version:
 
-    https://github.com/williamrjackson/UnityTransformToolkit.git#v1.0.2
+    https://github.com/williamrjackson/UnityTransformToolkit.git#v1.0.3
 
 
 ## Quick start
