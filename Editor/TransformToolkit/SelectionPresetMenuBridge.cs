@@ -5,12 +5,11 @@ namespace Wrj.TransformToolkit
 {
     public static class SelectionPresetMenuBridge
 {
-    private const string RegistryAssetSearch = "t:SelectionPresetRegistry";
     // --- Renumber ---
     [MenuItem("Edit/Renumber")]
     [MenuItem("GameObject/Renumber", false, 0)]
     private static void Renumber()
-        => RunFromRegistry(r => r.renumberPreset, "Renumber Preset not assigned.");
+        => RunPreset<RenumberSelectionPreset>();
 
     [MenuItem("Edit/Renumber", true)]
     [MenuItem("GameObject/Renumber", true)]
@@ -21,7 +20,7 @@ namespace Wrj.TransformToolkit
     [MenuItem("Edit/Reorder Hierarchy To Selection")]
     [MenuItem("GameObject/Reorder Hierarchy To Selection", false, 0)]
     private static void ReorderHierarchyToSelection()
-        => RunFromRegistry(r => r.renumberPreset, "Renumber Preset not assigned (this preset also contains Reorder).");
+        => RunPreset<ReorderHierarchyToSelectionPreset>();
 
     [MenuItem("Edit/Reorder Hierarchy To Selection", true)]
     [MenuItem("GameObject/Reorder Hierarchy To Selection", true)]
@@ -31,39 +30,28 @@ namespace Wrj.TransformToolkit
     // -----------------------
     // Shared dispatch
     // -----------------------
-    private static void RunFromRegistry(System.Func<SelectionPresetRegistry, SelectionPreset> selector, string errorMsg)
+    private static void RunPreset<TPreset>() where TPreset : SelectionPreset
     {
-        var registry = FindRegistry();
-        if (!registry)
-        {
-            EditorUtility.DisplayDialog(
-                "Selection Preset Registry Missing",
-                "Create a SelectionPresetRegistry asset and assign your presets.\n\n" +
-                "Create → Transform Toolkit → Selection Presets → Selection Preset Registry",
-                "OK");
-            return;
-        }
-
-        var preset = selector(registry);
+        var preset = FindFirstPreset<TPreset>();
         if (!preset)
         {
-            EditorUtility.DisplayDialog("Preset Missing", errorMsg, "OK");
-            // Selection.activeObject = registry;
-            // EditorGUIUtility.PingObject(registry);
+            EditorUtility.DisplayDialog(
+                "Selection Preset Missing",
+                $"No {typeof(TPreset).Name} asset exists. Open Transform Toolkit and select Refresh Presets to bake it.",
+                "OK");
             return;
         }
 
         preset.Apply(Selection.gameObjects);
     }
 
-    private static SelectionPresetRegistry FindRegistry()
+    private static TPreset FindFirstPreset<TPreset>() where TPreset : SelectionPreset
     {
-        var guids = AssetDatabase.FindAssets(RegistryAssetSearch);
+        var guids = AssetDatabase.FindAssets($"t:{typeof(TPreset).Name}");
         if (guids == null || guids.Length == 0) return null;
 
-        // If multiple registries exist, just take the first (or you can add logic here).
         var path = AssetDatabase.GUIDToAssetPath(guids[0]);
-        return AssetDatabase.LoadAssetAtPath<SelectionPresetRegistry>(path);
+        return AssetDatabase.LoadAssetAtPath<TPreset>(path);
     }
 }
 }

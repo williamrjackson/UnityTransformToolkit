@@ -72,13 +72,13 @@ The driver applies one numeric operation to a local transform channel across the
 | **Multiply** | Multiplies the current value by a factor. |
 | **Linear** | Distributes values from **Start** to **End** across the ordered selection. |
 | **Random** | Generates a deterministic value between **Min** and **Max** for each object. |
-| **Curve** | Evaluates an animation curve across the ordered selection, then maps the result between **Start** and **End**. |
+| **Curve** | Evaluates an animation curve across the ordered selection, then maps the result between **Start** and **End**. Use **Linear** or **Ease In/Out** for an explicit standard curve. |
 
-Choose a target and mode, enter the required values, and select **Apply**. When Live Preview is active, **Set Baseline (Zero Delta)** commits the current scene state as the baseline and resets Add or Multiply to its neutral value.
+Choose a target and mode, enter the required values, and select **Apply**. In Add or Multiply mode with Live Preview active, **Set Baseline** commits the current scene state and resets the mode to its neutral value. The control is unavailable in modes that do not use a cumulative baseline.
 
 ## Presets
 
-Preset settings are stored in ScriptableObject assets. Expand a preset in the window, configure it, and select **Apply**. Select **Refresh Presets** after adding a new preset asset.
+Preset settings are stored in ScriptableObject assets. Expand a preset in the window, configure it, and select **Apply**. Select **Refresh Presets** to bake one asset for every missing preset type into `Assets/TransformToolkit/Presets` and refresh the list. Existing preset assets are preserved and reused, regardless of where they are stored in the project.
 
 ### Transform presets
 
@@ -170,7 +170,7 @@ Change **Order** at the top of the window. Hierarchy order and name order are ge
 
 **Add or Multiply appears to compound during preview**
 
-Live Preview uses an edit-session baseline to prevent runaway accumulation. End the gesture or select **Set Baseline (Zero Delta)** before beginning the next adjustment.
+Live Preview uses an edit-session baseline to prevent runaway accumulation. End the gesture or select **Set Baseline** before beginning the next Add or Multiply adjustment.
 
 **A surface alignment does nothing**
 

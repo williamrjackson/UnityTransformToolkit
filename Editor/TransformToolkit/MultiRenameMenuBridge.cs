@@ -31,6 +31,8 @@ namespace Wrj.TransformToolkit
             }
         }
 
+        preset.SuggestOldTokenFromSelection();
+
         // Configure-first behavior: open window + focus preset (NO apply)
         TransformToolkitWindow.OpenAndFocusPreset(preset, scrollTo: true);
     }

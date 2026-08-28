@@ -50,18 +50,7 @@ namespace Wrj.TransformToolkit
             using (new EditorGUI.DisabledScope(Selection.gameObjects.Length < 2))
             {
                 if (GUILayout.Button("Suggest Old Token"))
-                {
-                    var suggested = SuggestOldToken(Selection.gameObjects, minSuggestedOldTokenLength);
-                    if (!string.IsNullOrEmpty(suggested))
-                    {
-                        oldToken = suggested;
-                        EditorUtility.SetDirty(this);
-                    }
-                    else
-                    {
-                        EditorUtility.DisplayDialog("Multi-Rename", "No meaningful common substring found.", "OK");
-                    }
-                }
+                    SuggestOldTokenFromSelection();
             }
 
             GUILayout.FlexibleSpace();
@@ -87,6 +76,21 @@ namespace Wrj.TransformToolkit
         DrawPreviewArea();
 
         return EditorGUI.EndChangeCheck();
+    }
+
+    public bool SuggestOldTokenFromSelection()
+    {
+        var suggested = SuggestOldToken(Selection.gameObjects, minSuggestedOldTokenLength);
+        if (string.IsNullOrEmpty(suggested))
+        {
+            EditorUtility.DisplayDialog("Multi-Rename", "No meaningful common substring found.", "OK");
+            return false;
+        }
+
+        oldToken = suggested;
+        _lastPreviewHash = 0;
+        EditorUtility.SetDirty(this);
+        return true;
     }
 
     private void DrawPreviewArea()

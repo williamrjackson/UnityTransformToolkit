@@ -11,6 +11,7 @@ namespace Wrj.TransformToolkit
         // --- Selection caching ---
         private Transform[] _selection = Array.Empty<Transform>();
         private int _selectionHash;
+        private UnityEditor.Editor _transformInspector;
 
         // --- Driver ---
         private enum OrderMode { UnitySelectionOrder, HierarchyOrder, NameOrder }
@@ -48,6 +49,8 @@ namespace Wrj.TransformToolkit
 
         private float _a = -5f;
         private float _b = 5f;
+        private bool _mirrorRange;
+        private float _rangeMidpoint;
 
         // Curve driver
         private AnimationCurve _curve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
@@ -72,6 +75,8 @@ namespace Wrj.TransformToolkit
         [SerializeField] private TransformPreset[] _transformPresetAssets = Array.Empty<TransformPreset>();
         [SerializeField] private SelectionPreset[] _selectionPresetAssets = Array.Empty<SelectionPreset>();
         private PresetContext _presetCtx;
+
+        private const string BakedPresetsFolder = "Assets/TransformToolkit/Presets";
 
         // --- External focus request (from menu items) ---
         private static UnityEngine.Object s_focusPresetAsset;
@@ -146,11 +151,24 @@ namespace Wrj.TransformToolkit
             Selection.selectionChanged -= OnSelectionChanged;
             EditorApplication.update -= OnEditorUpdate;
             EndPreviewSession();
+
+            if (_transformInspector)
+            {
+                DestroyImmediate(_transformInspector);
+                _transformInspector = null;
+            }
         }
 
         private void OnSelectionChanged()
         {
             EndPreviewSession();
+
+            if (_transformInspector)
+            {
+                DestroyImmediate(_transformInspector);
+                _transformInspector = null;
+            }
+
             RebuildSelection(force: true);
             Repaint();
         }
@@ -194,16 +212,19 @@ namespace Wrj.TransformToolkit
             if (e.type == EventType.MouseUp || e.type == EventType.Ignore)
                 EndPreviewSession();
 
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
+            DrawTransformInspector();
 
+            EditorGUILayout.Space(10);
             DrawSelectionHeader();
 
             EditorGUILayout.Space(10);
             DrawDriverPanel();
 
             EditorGUILayout.Space(10);
-            DrawPresetsPanel();
+            DrawPresetsToolbar();
 
+            _scroll = EditorGUILayout.BeginScrollView(_scroll);
+            DrawPresetSections();
             EditorGUILayout.EndScrollView();
 
             // ✅ Apply pending scroll AFTER EndScrollView so it actually takes effect
@@ -222,6 +243,23 @@ namespace Wrj.TransformToolkit
                     BeginPreviewSession($"Transform Driver ({_driverMode})");
 
                 _lastInputs = currentInputs;
+            }
+        }
+
+        private void DrawTransformInspector()
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("Transform", EditorStyles.boldLabel);
+
+                if (_selection == null || _selection.Length == 0)
+                {
+                    EditorGUILayout.HelpBox("Select one or more GameObjects to edit their transforms.", MessageType.Info);
+                    return;
+                }
+
+                UnityEditor.Editor.CreateCachedEditor(_selection, null, ref _transformInspector);
+                _transformInspector.OnInspectorGUI();
             }
         }
 
@@ -257,6 +295,65 @@ namespace Wrj.TransformToolkit
 
                 list.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));
                 _selectionPresetAssets = list.ToArray();
+            }
+        }
+
+        private void BakeAndRefreshPresetAssets()
+        {
+            int createdCount = BakeMissingPresetAssets<TransformPreset>();
+            createdCount += BakeMissingPresetAssets<SelectionPreset>();
+
+            if (createdCount > 0)
+            {
+                AssetDatabase.SaveAssets();
+                Debug.Log($"Transform Toolkit baked {createdCount} missing preset asset(s) to {BakedPresetsFolder}.");
+            }
+
+            RefreshPresetAssets();
+        }
+
+        private static int BakeMissingPresetAssets<TPreset>() where TPreset : ScriptableObject
+        {
+            EnsureAssetFolderExists(BakedPresetsFolder);
+
+            var existingTypes = new HashSet<Type>();
+            foreach (var guid in AssetDatabase.FindAssets($"t:{typeof(TPreset).Name}"))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var preset = AssetDatabase.LoadAssetAtPath<TPreset>(path);
+                if (preset)
+                    existingTypes.Add(preset.GetType());
+            }
+
+            int createdCount = 0;
+            foreach (var presetType in TypeCache.GetTypesDerivedFrom<TPreset>())
+            {
+                if (presetType.IsAbstract || presetType.IsGenericType || existingTypes.Contains(presetType))
+                    continue;
+
+                var preset = CreateInstance(presetType);
+                var assetPath = AssetDatabase.GenerateUniqueAssetPath(
+                    $"{BakedPresetsFolder}/{presetType.Name}.asset");
+
+                AssetDatabase.CreateAsset(preset, assetPath);
+                createdCount++;
+            }
+
+            return createdCount;
+        }
+
+        private static void EnsureAssetFolderExists(string folderPath)
+        {
+            var parts = folderPath.Split('/');
+            var currentPath = parts[0];
+
+            for (int i = 1; i < parts.Length; i++)
+            {
+                var nextPath = $"{currentPath}/{parts[i]}";
+                if (!AssetDatabase.IsValidFolder(nextPath))
+                    AssetDatabase.CreateFolder(currentPath, parts[i]);
+
+                currentPath = nextPath;
             }
         }
 
@@ -356,31 +453,42 @@ namespace Wrj.TransformToolkit
                         break;
 
                     case DriverMode.Linear:
-                        _a = EditorGUILayout.FloatField("Start (a)", _a);
-                        _b = EditorGUILayout.FloatField("End (b)", _b);
+                        DrawRangeFields("Start (a)", "End (b)");
                         break;
 
                     case DriverMode.Random:
-                        _a = EditorGUILayout.FloatField("Min (a)", _a);
-                        _b = EditorGUILayout.FloatField("Max (b)", _b);
+                        DrawRangeFields("Min (a)", "Max (b)");
                         break;
 
                     case DriverMode.Curve:
-                        _a = EditorGUILayout.FloatField("Start (a)", _a);
-                        _b = EditorGUILayout.FloatField("End (b)", _b);
+                        DrawRangeFields("Start (a)", "End (b)");
 
                         _curveFoldout = EditorGUILayout.Foldout(_curveFoldout, "Curve", true);
                         if (_curveFoldout)
                         {
-                            _curve = EditorGUILayout.CurveField("Shape", _curve);
+                            EditorGUI.BeginChangeCheck();
+                            var editedCurve = EditorGUILayout.CurveField("Shape", _curve);
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                _curve = editedCurve;
+                                ApplyLivePreviewImmediately();
+                            }
 
                             using (new EditorGUILayout.HorizontalScope())
                             {
                                 GUILayout.FlexibleSpace();
-                                if (GUILayout.Button("Reset Curve", GUILayout.Width(110)))
+
+                                if (GUILayout.Button("Linear", GUILayout.Width(70)))
+                                {
+                                    _curve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+                                    ApplyLivePreviewImmediately();
+                                    Repaint();
+                                }
+
+                                if (GUILayout.Button("Ease In/Out", GUILayout.Width(100)))
                                 {
                                     _curve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-                                    _lastInputs = ReadInputs();
+                                    ApplyLivePreviewImmediately();
                                     Repaint();
                                 }
                             }
@@ -395,16 +503,76 @@ namespace Wrj.TransformToolkit
                     if (GUILayout.Button("Apply"))
                         ApplyDriverOnce();
 
-                    using (new EditorGUI.DisabledScope(!_livePreview))
+                    bool canSetBaseline = _livePreview && IsCumulative(_driverMode);
+                    using (new EditorGUI.DisabledScope(!canSetBaseline))
                     {
-                        if (GUILayout.Button("Set Baseline (Zero Delta)"))
+                        if (GUILayout.Button(new GUIContent(
+                                "Set Baseline",
+                                "Commits the current values as the baseline for Add or Multiply Live Preview.")))
                             SetBaselineFromCurrent();
                     }
                 }
             }
         }
 
-        private void DrawPresetsPanel()
+        private void ApplyLivePreviewImmediately()
+        {
+            if (!_livePreview) return;
+
+            if (!_previewSessionActive)
+                BeginPreviewSession($"Transform Driver ({_driverMode})");
+
+            ApplyDriver_NoUndo();
+            SceneView.RepaintAll();
+        }
+
+        private void DrawRangeFields(string startLabel, string endLabel)
+        {
+            bool wasMirrored = _mirrorRange;
+            _mirrorRange = EditorGUILayout.ToggleLeft(
+                new GUIContent("Mirror Around Midpoint", "Keep both range endpoints equally spaced around a midpoint."),
+                _mirrorRange);
+
+            if (_mirrorRange && !wasMirrored)
+                _rangeMidpoint = (_a + _b) * 0.5f;
+
+            if (_mirrorRange)
+            {
+                EditorGUI.BeginChangeCheck();
+                float newMidpoint = EditorGUILayout.FloatField("Midpoint", _rangeMidpoint);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    float offset = newMidpoint - _rangeMidpoint;
+                    _rangeMidpoint = newMidpoint;
+                    _a += offset;
+                    _b += offset;
+                }
+            }
+
+            EditorGUI.BeginChangeCheck();
+            float newStart = EditorGUILayout.FloatField(startLabel, _a);
+            bool startChanged = EditorGUI.EndChangeCheck();
+
+            if (startChanged)
+            {
+                _a = newStart;
+                if (_mirrorRange)
+                    _b = (2f * _rangeMidpoint) - _a;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            float newEnd = EditorGUILayout.FloatField(endLabel, _b);
+            bool endChanged = EditorGUI.EndChangeCheck();
+
+            if (endChanged)
+            {
+                _b = newEnd;
+                if (_mirrorRange)
+                    _a = (2f * _rangeMidpoint) - _b;
+            }
+        }
+
+        private void DrawPresetsToolbar()
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
@@ -413,15 +581,48 @@ namespace Wrj.TransformToolkit
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Refresh Presets", GUILayout.Width(130)))
-                        RefreshPresetAssets();
+                        BakeAndRefreshPresetAssets();
 
                     GUILayout.FlexibleSpace();
-                }
 
+                    if (GUILayout.Button("Expand All", GUILayout.Width(90)))
+                        SetAllPresetsExpanded(true);
+
+                    if (GUILayout.Button("Collapse All", GUILayout.Width(90)))
+                        SetAllPresetsExpanded(false);
+                }
+            }
+        }
+
+        private void DrawPresetSections()
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
                 DrawPresetSection_TransformPresets();
                 EditorGUILayout.Space(10);
                 DrawPresetSection_SelectionPresets();
             }
+        }
+
+        private void SetAllPresetsExpanded(bool isExpanded)
+        {
+            foreach (var preset in _transformPresetAssets ?? Array.Empty<TransformPreset>())
+            {
+                if (!preset || preset.IsExpanded == isExpanded) continue;
+
+                preset.IsExpanded = isExpanded;
+                EditorUtility.SetDirty(preset);
+            }
+
+            foreach (var preset in _selectionPresetAssets ?? Array.Empty<SelectionPreset>())
+            {
+                if (!preset || preset.IsExpanded == isExpanded) continue;
+
+                preset.IsExpanded = isExpanded;
+                EditorUtility.SetDirty(preset);
+            }
+
+            Repaint();
         }
 
         private void DrawPresetSection_TransformPresets()
