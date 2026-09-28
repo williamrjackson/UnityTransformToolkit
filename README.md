@@ -175,7 +175,3 @@ Live Preview uses an edit-session baseline to prevent runaway accumulation. End 
 **A surface alignment does nothing**
 
 Confirm the ray direction and maximum distance reach a collider, and review the trigger interaction setting.
-
-## Version
-
-This documentation applies to Transform Toolkit 0.0.2.
